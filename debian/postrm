@@ -1,0 +1,12 @@
+#!/bin/bash
+
+set -e
+
+case $1 in
+	upgrade|full-upgrade|remove|autoremove|purge)
+		rm -f /usr/bin/jmeter
+		rm -f /usr/bin/jmeter-server
+	;;
+esac
+
+#DEBHELPER#

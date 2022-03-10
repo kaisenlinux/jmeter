@@ -1,0 +1,30 @@
+Source: jmeter
+Section: net
+Priority: optional
+Maintainer: Kevin Chevreuil - Kaisen <kaisen@kaisenlinux.org>
+Build-Depends: debhelper-compat (= 13), gradle, default-jdk
+Standards-Version: 4.6.0
+Homepage: https://jmeter.apache.org
+Vcs-Browser: https://gitlab.com/kaisenlinux/packages/jmeter
+Vcs-Git: https://gitlab.com/kaisenlinux/packages/jmeter.git
+
+Package: jmeter
+Architecture: all
+Depends: ${misc:Depends},
+	 default-jre,
+Replaces: jmeter,
+	  jmeter-apidoc,
+	  jmeter-ftp,
+	  jmeter-help,
+	  jmeter-http,
+	  jmeter-java,
+	  jmeter-jms,
+	  jmeter-junit,
+	  jmeter-ldap,
+	  jmeter-mail,
+	  jmeter-mongodb,
+	  jmeter-tcp,
+Description: Load testing and performance measurement application (all modules included)
+ Apache JMeter is a 100% pure Java desktop application designed to load test
+ functional behavior and measure performance. It was originally designed for
+ testing Web Applications but has since expanded to other test functions.

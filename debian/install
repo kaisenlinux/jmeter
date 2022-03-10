@@ -1,0 +1,3 @@
+bin/ usr/share/jmeter/
+lib/ usr/share/jmeter/
+extras /usr/share/jmeter/

@@ -1,0 +1,10 @@
+#!/bin/bash
+
+set -e
+
+if [[ "$1" = "configure" ]]; then
+	ln -sf /usr/share/jmeter/bin/jmeter /usr/bin/
+	ln -sf /usr/share/jmeter/bin/jmeter-server /usr/bin/
+fi
+
+#DEBHELPER#

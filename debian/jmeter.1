@@ -1,0 +1,138 @@
+.TH JMETER "1" "July 2013" "" "User Commands"
+.SH NAME
+jmeter \- Apache JMeter - Load testing tool
+.SH SYNOPSIS
+.B jmeter
+[\fIoptions\fR]
+
+.SH DESCRIPTION
+
+Apache JMeter is a Java application designed to load test functional behavior and measure performance. It was originally designed for testing Web Applications but has since expanded to other test functions.
+
+Apache JMeter may be used to test performance both on static and dynamic resources (files, Servlets, Perl scripts, Java Objects, Data Bases and Queries, FTP Servers and more). It can be used to simulate a heavy load on a server, network or object to test its strength or to analyze overall performance under different load types. You can use it to make a graphical analysis of performance or to test your server/script/object behavior under heavy concurrent load.
+
+.SH OPTIONS
+.HP
+\fB\-h\fR, \fB\-\-help\fR
+.IP
+print usage information and exit
+.HP
+\fB\-v\fR, \fB\-\-version\fR
+.IP
+print the version information and exit
+.HP
+\fB\-p\fR, \fB\-\-propfile\fR <argument>
+.IP
+the jmeter property file to use
+.HP
+\fB\-q\fR, \fB\-\-addprop\fR <argument>
+.IP
+additional JMeter property file(s)
+.HP
+\fB\-t\fR, \fB\-\-testfile\fR <argument>
+.IP
+the jmeter test(.jmx) file to run
+.HP
+\fB\-l\fR, \fB\-\-logfile\fR <argument>
+.IP
+the file to log samples to
+.HP
+\fB\-j\fR, \fB\-\-jmeterlogfile\fR <argument>
+.IP
+jmeter run log file (jmeter.log)
+.HP
+\fB\-n\fR, \fB\-\-nongui\fR
+.IP
+run JMeter in nongui mode
+.HP
+\fB\-s\fR, \fB\-\-server\fR
+.IP
+run the JMeter server
+.HP
+\fB\-H\fR, \fB\-\-proxyHost\fR <argument>
+.IP
+Set a proxy server for JMeter to use
+.HP
+\fB\-P\fR, \fB\-\-proxyPort\fR <argument>
+.IP
+Set proxy server port for JMeter to use
+.HP
+\fB\-N\fR, \fB\-\-nonProxyHosts\fR <argument>
+.IP
+Set nonproxy host list (e.g. *.apache.org|localhost)
+.HP
+\fB\-u\fR, \fB\-\-username\fR <argument>
+.IP
+Set username for proxy server that JMeter is to use
+.HP
+\fB\-a\fR, \fB\-\-password\fR <argument>
+.IP
+Set password for proxy server that JMeter is to use
+.HP
+\fB\-J\fR, \fB\-\-jmeterproperty\fR <argument>=<value>
+.IP
+Define additional JMeter properties
+.HP
+\fB\-G\fR, \fB\-\-globalproperty\fR <argument>=<value>
+.IP
+Define Global properties (sent to servers)
+e.g. \fB\-Gport\fR=\fI123\fR
+.IP
+or \fB\-Gglobal\fR.properties
+.HP
+\fB\-D\fR, \fB\-\-systemproperty\fR <argument>=<value>
+.IP
+Define additional system properties
+.HP
+\fB\-S\fR, \fB\-\-systemPropertyFile\fR <argument>
+.IP
+additional system property file(s)
+.HP
+\fB\-L\fR, \fB\-\-loglevel\fR <argument>=<value>
+.IP
+[category=]level e.g. jorphan=INFO or jmeter.util=DEBUG
+.HP
+\fB\-r\fR, \fB\-\-runremote\fR
+.IP
+Start remote servers (as defined in remote_hosts)
+.HP
+\fB\-R\fR, \fB\-\-remotestart\fR <argument>
+.IP
+Start these remote servers (overrides remote_hosts)
+.HP
+\fB\-d\fR, \fB\-\-homedir\fR <argument>
+.IP
+the jmeter home directory to use
+.HP
+\fB\-X\fR, \fB\-\-remoteexit\fR
+.IP
+Exit the remote servers at end of test (non\-GUI)
+
+.SH EXAMPLES
+.HP
+Run Apache JMeter in GUI mode:
+.IP
+jmeter [\-p property\-file]
+
+.HP
+Run Apache JMeter in NON_GUI mode:
+.IP
+jmeter \-n \-t test\-file [\-p property\-file] [\-l log\-file]
+
+.HP
+Tell Apache JMeter to use a proxy server:
+.IP
+jmeter \-H [your.proxy.server] \-P [your proxy server port]
+
+.HP
+Run Apache JMeter in server mode:
+.IP
+jmeter \-s
+.TP
+or
+jmeter\-server
+.PP
+
+.SH HOMEPAGE
+
+http://jmeter.apache.org

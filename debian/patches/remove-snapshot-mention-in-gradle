@@ -1,0 +1,13 @@
+Author: Kevin Chevreuil - Kaisen <kaisen@kaisenlinux.org>
+
+--- jmeter-5.4.3.orig/build.gradle.kts
++++ jmeter-5.4.3/build.gradle.kts
+@@ -62,7 +62,7 @@ fun Project.boolProp(name: String) =
+ 
+ // Release candidate index
+ val String.v: String get() = rootProject.extra["$this.version"] as String
+-version = "jmeter".v + releaseParams.snapshotSuffix
++version = "jmeter".v
+ 
+ val displayVersion by extra {
+     version.toString() +
