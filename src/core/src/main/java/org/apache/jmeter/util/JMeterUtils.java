@@ -52,6 +52,8 @@ import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
 
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.jmeter.gui.GuiPackage;
 import org.apache.jmeter.threads.JMeterContextService;
 import org.apache.jorphan.gui.JFactory;
@@ -69,6 +71,8 @@ import org.apiguardian.api.API;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.thoughtworks.xstream.XStream;
 import com.thoughtworks.xstream.security.AnyTypePermission;
 import com.thoughtworks.xstream.security.NoTypePermission;
@@ -92,6 +96,20 @@ public class JMeterUtils implements UnitTestManager {
         public static final PatternCacheLRU INSTANCE = new PatternCacheLRU(
                 getPropDefault("oro.patterncache.size",1000), // $NON-NLS-1$
                 new Perl5Compiler());
+    }
+
+    private static final class LazyJavaPatternCacheHolder {
+        private LazyJavaPatternCacheHolder() {
+            super();
+        }
+        public static final LoadingCache<Pair<String, Integer>, java.util.regex.Pattern> INSTANCE =
+                Caffeine
+                        .newBuilder()
+                        .maximumSize(getPropDefault("jmeter.regex.patterncache.size", 1000))
+                        .build(key -> {
+                            //noinspection MagicConstant
+                            return java.util.regex.Pattern.compile(key.getLeft(), key.getRight().intValue());
+                        });
     }
 
     public static final String RES_KEY_PFX = "[res_key="; // $NON-NLS-1$
@@ -252,6 +270,14 @@ public class JMeterUtils implements UnitTestManager {
         return p;
     }
 
+    public static java.util.regex.Pattern compilePattern(String expression) {
+        return compilePattern(expression, 0);
+    }
+
+    public static java.util.regex.Pattern compilePattern(String expression, int flags) {
+        return LazyJavaPatternCacheHolder.INSTANCE.get(Pair.of(expression, Integer.valueOf(flags)));
+    }
+
     public static PatternCacheLRU getPatternCache() {
         return LazyPatternCacheHolder.INSTANCE;
     }
@@ -269,7 +295,6 @@ public class JMeterUtils implements UnitTestManager {
     public static Pattern getPattern(String expression) throws MalformedCachePatternException {
         return getPattern(expression, Perl5Compiler.READ_ONLY_MASK);
     }
-
     /**
      * Get a compiled expression from the pattern cache.
      *
@@ -714,6 +739,28 @@ public class JMeterUtils implements UnitTestManager {
     }
 
     /**
+     * Get an array of String if present and not empty, defaultValue if not present.
+     *
+     * @param propName
+     *            the name of the property.
+     * @param defaultVal
+     *            the default value.
+     * @return The PropDefault value
+     */
+    public static String[] getArrayPropDefault(String propName, String[] defaultVal) {
+        try {
+            String strVal = appProperties.getProperty(propName);
+            if (StringUtils.isNotBlank(strVal)) {
+                return strVal.trim().split("\\s+");
+            }
+        } catch (Exception e) {
+            log.warn("Exception '{}' occurred when fetching Array property:'{}', defaulting to: {}",
+                    e.getMessage(), propName, defaultVal != null ? Arrays.toString(defaultVal) : null);
+        }
+        return defaultVal;
+    }
+
+    /**
      * Get a long value with default if not present.
      *
      * @param propName
@@ -870,14 +917,17 @@ public class JMeterUtils implements UnitTestManager {
             System.out.println(errorMsg); // NOSONAR intentional
             return; // Done
         }
-        try {
-            JOptionPane.showMessageDialog(instance.getMainFrame(),
-                    formatMessage(errorMsg),
-                    titleMsg,
-                    JOptionPane.ERROR_MESSAGE);
-        } catch (HeadlessException e) {
-            log.warn("reportErrorToUser(\"{}\") caused", errorMsg, e);
-        }
+        String errorMessage = errorMsg;
+        SwingUtilities.invokeLater(() -> {
+            try {
+                JOptionPane.showMessageDialog(instance.getMainFrame(),
+                        formatMessage(errorMessage),
+                        titleMsg,
+                        JOptionPane.ERROR_MESSAGE);
+            } catch (HeadlessException e) {
+                log.warn("reportErrorToUser(\"{}\") caused", errorMessage, e);
+            }
+        });
     }
 
     /**
@@ -893,14 +943,16 @@ public class JMeterUtils implements UnitTestManager {
             System.out.println(msg); // NOSONAR intentional
             return; // Done
         }
-        try {
-            JOptionPane.showMessageDialog(instance.getMainFrame(),
-                    formatMessage(msg),
-                    titleMsg,
-                    JOptionPane.INFORMATION_MESSAGE);
-        } catch (HeadlessException e) {
-            log.warn("reportInfoToUser(\"{}\") caused", msg, e);
-        }
+        SwingUtilities.invokeLater(() -> {
+            try {
+                JOptionPane.showMessageDialog(instance.getMainFrame(),
+                        formatMessage(msg),
+                        titleMsg,
+                        JOptionPane.INFORMATION_MESSAGE);
+            } catch (HeadlessException e) {
+                log.warn("reportInfoToUser(\"{}\") caused", msg, e);
+            }
+        });
     }
 
     private static JScrollPane formatMessage(String errorMsg) {

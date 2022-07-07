@@ -45,6 +45,7 @@ javaPlatform {
 
 dependencies {
     api(platform("org.codehaus.groovy:groovy-bom:${"groovy".v}"))
+    api(platform("org.jetbrains.kotlinx:kotlinx-coroutines-bom:${"kotlinx-coroutines".v}"))
 
     // Parenthesis are needed here: https://github.com/gradle/gradle/issues/9248
     (constraints) {
@@ -52,15 +53,19 @@ dependencies {
         // runtime means "the dependency is only for runtime, not for compilation"
         // In other words, marking dependency as "runtime" would avoid accidental
         // dependency on it during compilation
-        runtimev("org.apache.tika:tika-parsers", "tika")
-        runtimev("org.ow2.asm:asm")
+        // Note: if there's at least single chance for the dependency to be needed on the
+        // compilation classpath (e.g. it is used as a transitive by a third-party library)
+        // then it should be declared as "api" here since we use useCompileClasspathVersions
+        // to make runtime classpath consistent with the compile one.
+        apiv("org.apache.tika:tika-parsers", "tika")
+        apiv("org.ow2.asm:asm")
 
         // activemq-all should not be used as it provides secondary slf4j binding
-        runtimev("org.apache.activemq:activemq-broker", "activemq")
-        runtimev("org.apache.activemq:activemq-client", "activemq")
-        runtimev("org.apache.activemq:activemq-spring", "activemq")
-        runtimev("org.springframework:spring-context", "springframework")
-        runtimev("org.springframework:spring-beans", "springframework")
+        apiv("org.apache.activemq:activemq-broker", "activemq")
+        apiv("org.apache.activemq:activemq-client", "activemq")
+        apiv("org.apache.activemq:activemq-spring", "activemq")
+        apiv("org.springframework:spring-context", "springframework")
+        apiv("org.springframework:spring-beans", "springframework")
 
         apiv("bsf:bsf")
         apiv("cglib:cglib-nodep")
@@ -75,7 +80,7 @@ dependencies {
         apiv("com.github.weisj:darklaf-theme", "darklaf")
         apiv("com.github.weisj:darklaf-property-loader", "darklaf")
         apiv("com.github.weisj:darklaf-extensions-rsyntaxarea", "darklaf.extensions")
-        apiv("com.helger:ph-commons")
+        apiv("com.helger.commons:ph-commons")
         apiv("com.helger:ph-css")
         apiv("com.jayway.jsonpath:json-path")
         apiv("com.miglayout:miglayout-core", "miglayout")
@@ -86,6 +91,7 @@ dependencies {
         apiv("commons-collections:commons-collections")
         apiv("commons-io:commons-io")
         apiv("commons-lang:commons-lang")
+        apiv("commons-logging:commons-logging")
         apiv("commons-net:commons-net")
         apiv("dnsjava:dnsjava")
         apiv("io.burt:jmespath-core")
@@ -94,10 +100,12 @@ dependencies {
         apiv("javax.mail:mail")
         apiv("jcharts:jcharts")
         apiv("junit:junit", "junit4")
+        apiv("org.jetbrains:annotations", "jetbrains-annotations")
+        apiv("org.jetbrains.lets-plot:lets-plot-batik")
+        apiv("org.jetbrains.lets-plot:lets-plot-kotlin-jvm")
+        apiv("org.junit.jupiter:junit-jupiter", "junit5")
         apiv("org.junit.jupiter:junit-jupiter-api", "junit5")
         apiv("org.junit.jupiter:junit-jupiter-params", "junit5")
-        runtimev("org.junit.jupiter:junit-jupiter-engine", "junit5")
-        runtimev("org.junit.vintage:junit-vintage-engine", "junit5")
         apiv("net.minidev:accessors-smart")
         apiv("net.minidev:json-smart")
         apiv("net.sf.jtidy:jtidy")

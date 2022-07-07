@@ -18,6 +18,7 @@
 package org.apache.jmeter.functions;
 
 import static org.apache.jmeter.functions.FunctionTestHelper.makeParams;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.FileNotFoundException;
 
@@ -95,24 +96,16 @@ public class PackageTest extends JMeterTestCaseJUnit {
 
     public void BSH1() throws Exception {
         String fn = "src/test/resources/org/apache/jmeter/functions/testfiles/BeanShellTest.bsh";
-        try {
-            BSHFParams(null, null, null);
-            fail("Expected InvalidVariableException");
-        } catch (InvalidVariableException e) {
-        }
 
-        try {
-            BSHFParams("", "", "");
-            fail("Expected InvalidVariableException");
-        } catch (InvalidVariableException e) {
-        }
+        assertThrows(InvalidVariableException.class, () -> BSHFParams(null, null, null));
+        assertThrows(InvalidVariableException.class, () -> BSHFParams("", "", ""));
 
         BeanShell bsh;
         try {
             bsh = BSHFParams("", "", null);
             assertEquals("", bsh.execute());
         } catch (InvalidVariableException e) {
-            fail("BeanShell not present");
+            throw new AssertionError("BeanShell not present", e);
         }
 
         bsh = BSHFParams("1", null, null);
@@ -165,33 +158,10 @@ public class PackageTest extends JMeterTestCaseJUnit {
 
     }
 
-    // Helper class used to implement co-routine between two threads
-    private static class Baton {
-        void pass() {
-            done();
-            try {
-                wait(1000);
-            } catch (InterruptedException e) {
-                System.out.println(e);
-            }
-        }
-
-        void done() {
-            notifyAll();
-        }
-
-    }
-
-    private static final Baton BATON = new Baton();
-
     // XPathFileContainer tests
 
     public void XPathtestNull() throws Exception {
-        try {
-            new XPathFileContainer("nosuch.xml", "/");
-            fail("Should not find the file");
-        } catch (FileNotFoundException e) {
-        }
+        assertThrows(FileNotFoundException.class, () -> new XPathFileContainer("nosuch.xml", "/"));
     }
 
     public void XPathtestrowNum() throws Exception {
@@ -218,7 +188,7 @@ public class PackageTest extends JMeterTestCaseJUnit {
         int last = 0;
         for (int i = 0; i < f.size(); i++) {
             last = f.nextRow();
-            log.debug("found [" + i + "]" + f.getXPathString(last));
+            log.debug("found [{}]{}", i, f.getXPathString(last));
         }
         assertEquals(last + 1, f.size());
 
@@ -286,7 +256,7 @@ public class PackageTest extends JMeterTestCaseJUnit {
 
     private XPath setupXPath(String file, String expr) throws Exception{
         XPath xp = new XPath();
-        xp.setParameters(makeParams(new Object[]{getResourceFilePath(file), expr}));
+        xp.setParameters(makeParams(getResourceFilePath(file), expr));
         return xp;
     }
 

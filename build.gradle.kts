@@ -27,10 +27,13 @@ import com.github.vlsi.gradle.release.RepositoryType
 import net.ltgt.gradle.errorprone.errorprone
 import org.ajoberstar.grgit.Grgit
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.sonarqube.gradle.SonarQubeProperties
 
 plugins {
     java
+    kotlin("jvm") apply false
     jacoco
     checkstyle
     id("org.jetbrains.gradle.plugin.idea-ext") apply false
@@ -66,13 +69,13 @@ version = "jmeter".v + releaseParams.snapshotSuffix
 
 val displayVersion by extra {
     version.toString() +
-            if (releaseParams.release.get()) {
-                ""
-            } else {
-                // Append 7 characters of Git commit id for snapshot version
-                val grgit: Grgit? by project
-                grgit?.let { " " + it.head().abbreviatedId }
-            }
+        if (releaseParams.release.get()) {
+            ""
+        } else {
+            // Append 7 characters of Git commit id for snapshot version
+            val grgit: Grgit? by project
+            grgit?.let { " " + it.head().abbreviatedId }
+        }
 }
 
 println("Building JMeter $version")
@@ -204,7 +207,7 @@ fun SonarQubeProperties.add(name: String, valueProvider: () -> String) {
 }
 
 if (jacocoEnabled) {
-    val mergedCoverage = jacocoReport.get().reports.xml.destination.toString()
+    val mergedCoverage = jacocoReport.get().reports.xml.outputLocation.toString()
 
     // For every module we pass merged coverage report
     // That enables to see ":src:core" lines covered even in case they are covered from
@@ -284,7 +287,7 @@ allprojects {
         autostyle {
             kotlinGradle {
                 license()
-                ktlint()
+                ktlint("ktlint".v)
             }
             format("configs") {
                 filter {
@@ -400,6 +403,7 @@ allprojects {
                     disable(
                         "ComplexBooleanConstant",
                         "EqualsGetClass",
+                        "InlineMeSuggester",
                         "OperatorPrecedence",
                         "MutableConstantField",
                         // "ReferenceEquality",
@@ -424,6 +428,33 @@ allprojects {
                     license()
                     importOrder("static ", "java.", "javax", "org", "net", "com", "")
                     indentWithSpaces(4)
+                }
+            }
+        }
+    }
+
+    plugins.withId("org.jetbrains.kotlin.jvm") {
+        configure<KotlinJvmProjectExtension> {
+            // Require explicit access modifiers and require explicit types for public APIs.
+            // See https://kotlinlang.org/docs/whatsnew14.html#explicit-api-mode-for-library-authors
+            if (props.bool("kotlin.explicitApi", default = true)) {
+                explicitApi()
+            }
+        }
+        tasks.withType<KotlinCompile>().configureEach {
+            kotlinOptions {
+                if (!name.startsWith("compileTest")) {
+                    apiVersion = "kotlin.api".v
+                }
+            }
+        }
+        if (!skipAutostyle) {
+            autostyle {
+                kotlin {
+                    license()
+                    trimTrailingWhitespace()
+                    ktlint("ktlint".v)
+                    endWithNewline()
                 }
             }
         }
@@ -463,8 +494,8 @@ allprojects {
 
         tasks.withType<JacocoReport>().configureEach {
             reports {
-                html.isEnabled = reportsForHumans()
-                xml.isEnabled = !reportsForHumans()
+                html.required.set(reportsForHumans())
+                xml.required.set(!reportsForHumans())
             }
         }
         // Add each project to combined report
@@ -475,9 +506,11 @@ allprojects {
                 sourceDirectories.from(mainCode.allSource.srcDirs)
                 // IllegalStateException: Can't add different class with same name: module-info
                 // https://github.com/jacoco/jacoco/issues/858
-                classDirectories.from(mainCode.output.asFileTree.matching {
-                    exclude("module-info.class")
-                })
+                classDirectories.from(
+                    mainCode.output.asFileTree.matching {
+                        exclude("module-info.class")
+                    }
+                )
             }
         }
     }
@@ -494,10 +527,13 @@ allprojects {
         // This block is executed right after `java` plugin is added to a project
         java {
             sourceCompatibility = JavaVersion.VERSION_1_8
+            consistentResolution {
+                useCompileClasspathVersions()
+            }
         }
 
         repositories {
-            jcenter()
+            mavenCentral()
         }
 
         tasks {
@@ -517,7 +553,8 @@ allprojects {
                         filter(org.apache.tools.ant.filters.EscapeUnicode::class)
                         filter(LineEndings.LF)
                     } else if (name.endsWith(".dtd") || name.endsWith(".svg") ||
-                        name.endsWith(".txt")) {
+                        name.endsWith(".txt")
+                    ) {
                         filter(LineEndings.LF)
                     }
                 }
@@ -564,6 +601,11 @@ allprojects {
                     val value = System.getProperty(name) ?: default
                     value?.let { systemProperty(name, it) }
                 }
+                System.getProperties().filter {
+                    it.key.toString().startsWith("jmeter.properties.")
+                }.forEach {
+                    systemProperty(it.key.toString().substring("jmeter.properties.".length), it.value)
+                }
                 passProperty("java.awt.headless")
                 passProperty("skip.test_TestDNSCacheManager.testWithCustomResolverAnd1Server")
                 passProperty("junit.jupiter.execution.parallel.enabled", "true")
@@ -572,7 +614,7 @@ allprojects {
             withType<SpotBugsTask>().configureEach {
                 group = LifecycleBasePlugin.VERIFICATION_GROUP
                 if (enableSpotBugs) {
-                    description = "$description (skipped by default, to enable it add -Dspotbugs)"
+                    description = "$description (skipped by default, to enable it add -Pspotbugs)"
                 }
                 reports {
                     // xml goes for SonarQube, so we always create it just in case

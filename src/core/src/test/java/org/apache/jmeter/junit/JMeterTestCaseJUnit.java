@@ -17,10 +17,12 @@
 
 package org.apache.jmeter.junit;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import java.io.File;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.LinkedList;
 import java.util.Locale;
 import java.util.MissingResourceException;
 
@@ -108,14 +110,9 @@ public abstract class JMeterTestCaseJUnit extends TestCase {
 
     protected void checkInvalidParameterCounts(AbstractFunction func, int minimum)
             throws Exception {
-        Collection<CompoundVariable> parms = new LinkedList<>();
+        Collection<CompoundVariable> parms = new ArrayList<>();
         for (int c = 0; c < minimum; c++) {
-            try {
-                func.setParameters(parms);
-                fail("Should have generated InvalidVariableException for " + parms.size()
-                        + " parameters");
-            } catch (InvalidVariableException ignored) {
-            }
+            assertThrows(InvalidVariableException.class, () -> func.setParameters(parms));
             parms.add(new CompoundVariable());
         }
         func.setParameters(parms);
