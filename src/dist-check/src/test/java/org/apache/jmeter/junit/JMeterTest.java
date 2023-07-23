@@ -18,18 +18,17 @@
 package org.apache.jmeter.junit;
 
 import java.awt.Component;
-import java.awt.HeadlessException;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.lang.reflect.InvocationTargetException;
-import java.rmi.RemoteException;
+import java.lang.reflect.Modifier;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -37,22 +36,28 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
-import java.util.Set;
+import java.util.stream.Collectors;
 
+import javax.swing.SwingUtilities;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.jmeter.config.gui.ObsoleteGui;
+import org.apache.jmeter.dsl.DslPrinterTraverser;
 import org.apache.jmeter.gui.JMeterGUIComponent;
 import org.apache.jmeter.gui.UnsharedComponent;
 import org.apache.jmeter.gui.tree.JMeterTreeNode;
+import org.apache.jmeter.loadsave.IsEnabledNormalizer;
 import org.apache.jmeter.save.SaveService;
 import org.apache.jmeter.testbeans.TestBean;
 import org.apache.jmeter.testbeans.gui.TestBeanGUI;
 import org.apache.jmeter.testelement.TestElement;
+import org.apache.jmeter.testelement.property.JMeterProperty;
+import org.apache.jmeter.testelement.property.PropertyIterator;
 import org.apache.jmeter.util.JMeterUtils;
 import org.apache.jorphan.reflect.ClassFinder;
 import org.apache.jorphan.util.JOrphanUtils;
@@ -61,7 +66,6 @@ import org.junit.runner.Description;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
-import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
@@ -120,7 +124,7 @@ public class JMeterTest extends JMeterTestCaseJUnit implements Describable {
         StringBuilder sb = new StringBuilder();
         sb.append(getName());
         if (guiItem instanceof TestBeanGUI) {
-            sb.append(" ").append(guiItem.toString());
+            sb.append(" ").append(guiItem);
         } else if (guiItem != null) {
             sb.append(" ").append(guiItem.getClass().getName());
         } else if (serObj != null) {
@@ -134,7 +138,7 @@ public class JMeterTest extends JMeterTestCaseJUnit implements Describable {
     /*
      * Use a suite to allow the tests to be generated at run-time
      */
-    public static Test suite() throws Exception {
+    public static Test suite() throws Throwable {
         TestSuite suite = new TestSuite("JMeterTest");
 
         // The Locale used to instantiate the GUI objects
@@ -188,13 +192,12 @@ public class JMeterTest extends JMeterTestCaseJUnit implements Describable {
     }
 
     /**
-     * @return
-     * @throws ParserConfigurationException
-     * @throws IOException
-     * @throws SAXException
-     * @throws FileNotFoundException
+     * @return first element named {@code body}
+     * @throws ParserConfigurationException when stream contains invalid XML
+     * @throws IOException when stream can not be read
+     * @throws SAXException in case of XML parsing error
      */
-    private Element getBodyFromXMLDocument(InputStream stream)
+    private org.w3c.dom.Element getBodyFromXMLDocument(InputStream stream)
             throws ParserConfigurationException, SAXException, IOException {
         DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
         dbf.setIgnoringElementContentWhitespace(true);
@@ -232,41 +235,31 @@ public class JMeterTest extends JMeterTestCaseJUnit implements Describable {
         }
     }
 
-
-    public static int scanprintMap(Map<String, Boolean> m, String t) {
-        Set<String> s = m.keySet();
-        if (s.isEmpty()) {
-            return 0;
-        }
-
-        int unseen = 0;
-        for (String key : s) {
-            if (!m.get(key).equals(Boolean.TRUE)) {
-                if (unseen == 0)// first time
-                {
-                    System.out.println("\nNames remaining in " + t + " Map:");
-                }
-                unseen++;
-                System.out.println(key);
-            }
-        }
-        return unseen;
+    public static<T> List<T> keysWithFalseValues(Map<? extends T, Boolean> map) {
+        return map.entrySet().stream()
+                .filter(e -> !e.getValue().equals(Boolean.TRUE))
+                .map(Map.Entry::getKey)
+                .sorted()
+                .collect(Collectors.toList());
     }
 
-    public void checkGuiSet() throws Exception {
+    public void checkGuiSet() {
         guiTitles.remove("Example Sampler");// We don't mind if this is left over
         guiTitles.remove("Sample_Result_Save_Configuration");// Ditto, not a sampler
         assertEquals(
-                "Should not have any names left over, check name of components in EN (default) Locale, "
-                + "which must match name attribute of component, check java.awt.HeadlessException errors before, we are running with '-Djava.awt.headless="
-                + System.getProperty("java.awt.headless")+"'",
-                0, scanprintMap(guiTitles, "GUI"));
+                "Should not have any names left over in guiTitles map, check name of components in EN (default) Locale, "
+                        + "which must match name attribute of component, check java.awt.HeadlessException errors before,"
+                        + " we are running with '-Djava.awt.headless="
+                        + System.getProperty("java.awt.headless") + "'",
+                "[]",
+                keysWithFalseValues(guiTitles).toString()
+        );
     }
 
     /*
      * Test GUI elements - create the suite of tests
      */
-    private static Test suiteGUIComponents() throws Exception {
+    private static Test suiteGUIComponents() throws Throwable {
         TestSuite suite = new TestSuite("GuiComponents");
         for (Object o : getObjects(JMeterGUIComponent.class)) {
             JMeterGUIComponent item = (JMeterGUIComponent) o;
@@ -283,6 +276,8 @@ public class JMeterTest extends JMeterTestCaseJUnit implements Describable {
                 System.out.println("o.a.j.junit.JMeterTest INFO: JMeterGUIComponent: skipping some tests " + item.getClass().getName());
             } else {
                 ts.addTest(new JMeterTest("GUIComponents2", item));
+                ts.addTest(new JMeterTest("saveLoadShouldKeepElementIntact", item));
+                ts.addTest(new JMeterTest("propertiesShouldNotBeInitializedToNullValues", item));
                 ts.addTest(new JMeterTest("runGUITitle", item));
             }
             suite.addTest(ts);
@@ -294,7 +289,7 @@ public class JMeterTest extends JMeterTestCaseJUnit implements Describable {
     /*
      * Test GUI elements - create the suite of tests
      */
-    private static Test suiteBeanComponents() throws Exception {
+    private static Test suiteBeanComponents() throws Throwable {
         TestSuite suite = new TestSuite("BeanComponents");
         for (Object o : getObjects(TestBean.class)) {
             Class<?> c = o.getClass();
@@ -302,6 +297,8 @@ public class JMeterTest extends JMeterTestCaseJUnit implements Describable {
                 JMeterGUIComponent item = new TestBeanGUI(c);
                 TestSuite ts = new TestSuite(item.getClass().getName());
                 ts.addTest(new JMeterTest("GUIComponents2", item));
+                ts.addTest(new JMeterTest("saveLoadShouldKeepElementIntact", item));
+                ts.addTest(new JMeterTest("propertiesShouldNotBeInitializedToNullValues", item));
                 ts.addTest(new JMeterTest("runGUITitle", item));
                 suite.addTest(ts);
             } catch (IllegalArgumentException e) {
@@ -316,7 +313,7 @@ public class JMeterTest extends JMeterTestCaseJUnit implements Describable {
      * Test GUI elements - run the test
      */
     public void runGUITitle() throws Exception {
-        if (guiTitles.size() > 0) {
+        if (!guiTitles.isEmpty()) {
             String title = guiItem.getDocAnchor();
             boolean ct = guiTitles.containsKey(title);
             if (ct) {
@@ -324,7 +321,7 @@ public class JMeterTest extends JMeterTestCaseJUnit implements Describable {
             }
             String name = guiItem.getClass().getName();
             if (// Is this a work in progress or an internal GUI component?
-                title != null && title.length() > 0 // Will be "" for internal components
+                title != null && !title.isEmpty() // Will be "" for internal components
                 && !title.toUpperCase(Locale.ENGLISH).contains("(ALPHA")
                 && !title.toUpperCase(Locale.ENGLISH).contains("(BETA")
                 && !title.toUpperCase(Locale.ENGLISH).contains("(DEPRECATED")
@@ -354,7 +351,7 @@ public class JMeterTest extends JMeterTestCaseJUnit implements Describable {
             try {
                 String label = guiItem.getLabelResource();
                 assertNotNull("Label should not be null for "+name, label);
-                assertTrue("Label should not be empty for "+name, label.length() > 0);
+                assertTrue("Label should not be empty for "+name, !label.isEmpty());
                 assertFalse("'" + label + "' should be in resource file for " + name, JMeterUtils.getResString(
                         label).startsWith(JMeterUtils.RES_KEY_PFX));
             } catch (UnsupportedOperationException uoe) {
@@ -399,10 +396,71 @@ public class JMeterTest extends JMeterTestCaseJUnit implements Describable {
         assertEquals("Modify Test: Failed on " + name, "hey, new name!:", el2.getName());
     }
 
+    public void propertiesShouldNotBeInitializedToNullValues() {
+        TestElement el = guiItem.createTestElement();
+        PropertyIterator it = el.propertyIterator();
+        while (it.hasNext()) {
+            JMeterProperty property = it.next();
+            if (property.getObjectValue() == null) {
+                fail(
+                        "Property " + property.getName() + " is initialized with NULL OBJECT value in " +
+                                " test element " + el + " created with " + guiItem + ".createTestElement() " +
+                                "Please refrain from that since null properties consume memory, and they will be " +
+                                "removed when saving and loading the plan anyway"
+                );
+            }
+            if (property.getStringValue() == null) {
+                fail(
+                        "Property " + property.getName() + " is initialized with NULL STRING value in " +
+                                " test element " + el + " created with " + guiItem + ".createTestElement() " +
+                                "Please refrain from that since null properties consume memory, and they will be " +
+                                "removed when saving and loading the plan anyway"
+                );
+            }
+        }
+    }
+
+    public void saveLoadShouldKeepElementIntact() throws IOException {
+        TestElement expected = guiItem.createTestElement();
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        SaveService.saveElement(expected, bos);
+        byte[] serializedBytes = bos.toByteArray();
+        TestElement actual = (TestElement) SaveService.loadElement(new ByteArrayInputStream(serializedBytes));
+        compareAllProperties(expected, actual, serializedBytes);
+    }
+
+    private static void compareAllProperties(TestElement expected, TestElement actual, byte[] serializedBytes) {
+        expected.traverse(IsEnabledNormalizer.INSTANCE);
+        actual.traverse(IsEnabledNormalizer.INSTANCE);
+
+        String expectedStr = new DslPrinterTraverser(DslPrinterTraverser.DetailLevel.ALL).append(expected).toString();
+        if (!Objects.equals(expected, actual)) {
+            boolean abc = Objects.equals(expected, actual);
+            assertEquals(
+                    "TestElement after 'save+load' should match the one created in GUI\n" +
+                            "JMX is " + new String(serializedBytes, StandardCharsets.UTF_8),
+                    expectedStr,
+                    new DslPrinterTraverser(DslPrinterTraverser.DetailLevel.ALL).append(actual).toString()
+            );
+            fail("TestElement after 'save+load' should match the one created in GUI. " +
+                    "DSL representation is the same, however TestElement#equals says the elements are different. " +
+                    "DSL is " + expectedStr + "\n" +
+                    "JMX is " + new String(serializedBytes, StandardCharsets.UTF_8));
+        }
+        assertEquals(
+                "TestElement.hashCode after 'save+load' should match the one created in GUI. " +
+                "DSL representation is the same, however TestElement#hashCode says the elements are different. " +
+                "DSL is " + expectedStr + "\n" +
+                "JMX is " + new String(serializedBytes, StandardCharsets.UTF_8),
+                expected.hashCode(),
+                actual.hashCode()
+        );
+    }
+
     /*
      * Test serializable elements - create the suite of tests
      */
-    private static Test suiteSerializableElements() throws Exception {
+    private static Test suiteSerializableElements() throws Throwable {
         TestSuite suite = new TestSuite("SerializableElements");
         for (Object o : getObjects(Serializable.class)) {
             Serializable serObj = (Serializable) o;
@@ -451,34 +509,45 @@ public class JMeterTest extends JMeterTestCaseJUnit implements Describable {
         }
     }
 
-    public static Collection<Object> getObjects(Class<?> extendsClass) throws Exception {
+    public static Collection<Object> getObjects(Class<?> extendsClass) throws Throwable {
         String exName = extendsClass.getName();
-        Object myThis = "";
+        @SuppressWarnings("deprecation")
         Iterator<String> classes = ClassFinder
                 .findClassesThatExtend(JMeterUtils.getSearchPaths(), new Class[] { extendsClass }).iterator();
         List<Object> objects = new ArrayList<>();
-        String n = "";
-        boolean caughtError = true;
-        Throwable caught = null;
-        try {
-            while (classes.hasNext()) {
-                n = classes.next();
-                // TODO - improve this check
-                if (n.endsWith("RemoteJMeterEngineImpl")) {
-                    continue; // Don't try to instantiate remote server
-                }
-                if (n.endsWith("RemoteSampleListenerImpl")) {
-                    // TODO: Cannot start. travis-job-e984b3d5-f93f-4b0f-b6c0-50988a5ece9d is a loopback address.
-                    continue;
-                }
-                caught = instantiateClass(exName, myThis, objects, n, caught);
+        while (classes.hasNext()) {
+            String className = classes.next();
+            // TODO - improve this check
+            if (className.equals("org.apache.jmeter.gui.menu.StaticJMeterGUIComponent")) {
+                continue;
             }
-            caughtError = false;
-        } finally {
-            if (caughtError) {
-                System.out.println("Last class=" + n);
-                System.out.println("objects.size=" + objects.size());
-                System.out.println("Last error=" + caught);
+            if (className.endsWith("RemoteJMeterEngineImpl")) {
+                continue; // Don't try to instantiate remote server
+            }
+            if (className.endsWith("RemoteSampleListenerImpl")) {
+                // TODO: Cannot start. travis-job-e984b3d5-f93f-4b0f-b6c0-50988a5ece9d is a loopback address.
+                continue;
+            }
+            try {
+                // Construct classes in the AWT thread, as we may have found classes, that
+                // assume to be constructed in the AWT thread.
+                SwingUtilities.invokeAndWait(() -> {
+                    Object object = instantiateClass(className);
+                    if (object != null) {
+                        objects.add(object);
+                    }
+                });
+            } catch (InvocationTargetException e) {
+                Throwable cause = e.getCause();
+                if (cause instanceof IllegalStateException && cause.getMessage().startsWith("Unable to instantiate ")) {
+                    cause = cause.getCause();
+                }
+                if (extendsClass.equals(Serializable.class)) {
+                    // TODO: ignore only well-known classes
+                    System.err.println("Unable to instantiate " + className + " for service " + extendsClass + ", " + cause.toString());
+                } else {
+                    throw new IllegalStateException("Unable to instantiate " + className + " for service " + extendsClass, cause);
+                }
             }
         }
 
@@ -502,50 +571,18 @@ public class JMeterTest extends JMeterTestCaseJUnit implements Describable {
         return objects;
     }
 
-    private static Throwable instantiateClass(final String extendsClassName, final Object myThis,
-            final List<Object> objects, final String className, final Throwable oldCaught) throws Exception {
-        Throwable caught = oldCaught;
+    private static Object instantiateClass(String className) {
         try {
-            Class<?> c = Class.forName(className);
-            try {
-                // Try with a parameter-less constructor first
-                objects.add(c.getDeclaredConstructor().newInstance());
-            } catch (InstantiationException | NoSuchMethodException | IllegalAccessException |
-                    InvocationTargetException e) {
-                caught = e;
-                try {
-                    // Events often have this constructor
-                    objects.add(c.getConstructor(new Class[] { Object.class }).newInstance(
-                            new Object[] { myThis }));
-                } catch (NoSuchMethodException f) {
-                    // no luck. Ignore this class
-                    if (!Enum.class.isAssignableFrom(c)) { // ignore enums
-                        System.out.println("o.a.j.junit.JMeterTest WARN: " + extendsClassName + ": NoSuchMethodException  " +
-                            className + ", missing empty Constructor or Constructor with Object parameter");
-                    }
-                }
+            Class<?> aClass = Class.forName(className);
+            if (aClass.isEnum() || Modifier.isAbstract(aClass.getModifiers()) || aClass.isInterface()) {
+                return null;
             }
-        } catch (NoClassDefFoundError e) {
-            // no luck. Ignore this class
-            System.out.println("o.a.j.junit.JMeterTest WARN: " + extendsClassName + ": NoClassDefFoundError " + className + ":" + e.getMessage());
-            e.printStackTrace(System.out);
-        } catch (IllegalAccessException e) {
-            caught = e;
-            System.out.println("o.a.j.junit.JMeterTest WARN: " + extendsClassName + ": IllegalAccessException " + className + ":" + e.getMessage());
-            e.printStackTrace(System.out);
-            // We won't test restricted-access classes.
-        } catch (HeadlessException|ExceptionInInitializerError e) {// EIIE can be caused by Headless
-            caught = e;
-            System.out.println("o.a.j.junit.JMeterTest Error creating " + className + " " + e.toString());
-        } catch (Exception e) {
-            caught = e;
-            if (e instanceof RemoteException) { // not thrown, so need to check here
-                System.out.println("o.a.j.junit.JMeterTest WARN: " + "Error creating " + className + " " + e.toString());
-            } else {
-                throw new Exception("Error creating " + className, e);
-            }
+            return aClass
+                    .getDeclaredConstructor()
+                    .newInstance();
+        } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException |
+                 ClassNotFoundException e) {
+            throw new IllegalStateException("Unable to instantiate " + className, e instanceof InvocationTargetException ? e.getCause() : e);
         }
-        return caught;
     }
-
 }

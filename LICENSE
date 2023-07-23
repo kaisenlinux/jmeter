@@ -181,7 +181,7 @@ Additional License files can be found in the 'licenses' folder located in the sa
 - Software produced outside the ASF which is available under Apache-2.0
 
 Apache-2.0
-* org.gradle:gradle-wrapper:7.3
+* org.gradle:gradle-wrapper:8.1.1
 * start-bootstrap-admin2:start-bootstrap-admin2:1.0.7
 
 - Software produced outside the ASF which is available under other licenses (not Apache-2.0)

@@ -39,7 +39,7 @@ class TextGraphiteMetricsSender extends AbstractGraphiteMetricsSender {
     private List<MetricTuple> metrics = new ArrayList<>();
 
     private SocketConnectionInfos socketConnectionInfos;
-    private GenericKeyedObjectPool<SocketConnectionInfos, SocketOutputStream> socketOutputStreamPool;
+    private GenericKeyedObjectPool<? super SocketConnectionInfos, SocketOutputStream> socketOutputStreamPool;
     private String prefix;
 
     TextGraphiteMetricsSender() {
@@ -63,7 +63,7 @@ class TextGraphiteMetricsSender extends AbstractGraphiteMetricsSender {
 
     /** Setup used for testing, or if explicit customisation is required. */
     public void setup(SocketConnectionInfos socketConnectionInfos,
-                      GenericKeyedObjectPool<SocketConnectionInfos, SocketOutputStream> socketOutputStreamPool,
+                      GenericKeyedObjectPool<? super SocketConnectionInfos, SocketOutputStream> socketOutputStreamPool,
                       String prefix) {
         this.socketConnectionInfos = socketConnectionInfos;
         this.socketOutputStreamPool = socketOutputStreamPool;
@@ -75,12 +75,7 @@ class TextGraphiteMetricsSender extends AbstractGraphiteMetricsSender {
      */
     @Override
     public void addMetric(long timestamp, String contextName, String metricName, String metricValue) {
-        String name = new StringBuilder(50)
-                .append(prefix)
-                .append(contextName)
-                .append(".")
-                .append(metricName)
-                .toString();
+        String name = prefix + contextName + "." + metricName;
         synchronized (lock) {
             metrics.add(new MetricTuple(name, timestamp, metricValue));
         }
