@@ -16,6 +16,7 @@
  */
 
 import com.github.vlsi.gradle.dsl.configureEach
+import org.jetbrains.kotlin.gradle.tasks.Kapt
 
 plugins {
     id("java-library")
@@ -23,9 +24,7 @@ plugins {
 
 dependencies {
     annotationProcessor("com.google.auto.service:auto-service")
-    // Technically speaking, the version is already declared with bom-thirdparty,
-    // however we have to duplicate it here to workaround https://github.com/gradle/gradle/issues/25712
-    compileOnlyApi("com.google.auto.service:auto-service-annotations:1.1.1")
+    compileOnlyApi("com.google.auto.service:auto-service-annotations")
 }
 
 plugins.withId("org.jetbrains.kotlin.jvm") {
@@ -37,6 +36,11 @@ plugins.withId("org.jetbrains.kotlin.jvm") {
         findProject(":src:bom-thirdparty")?.let {
             "kapt"(platform(it))
         }
+    }
+
+    tasks.configureEach<Kapt> {
+        // Workaround for https://youtrack.jetbrains.com/issue/KT-45329/IDE-KAPT-Number-of-loaded-files-in-snapshots-differs-when-using-Run-with-Coverage-and-project-has-Java-and-Kotlin-targets-with
+        inputs.property("wa.to.trigger.full.recompilation", "1")
     }
 }
 

@@ -17,6 +17,8 @@
 
 package org.apache.jmeter.protocol.http.proxy;
 
+import static org.apache.commons.lang3.StringUtils.defaultIfEmpty;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
@@ -26,6 +28,7 @@ import java.text.MessageFormat;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import javax.xml.XMLConstants;
 import javax.xml.parsers.ParserConfigurationException;
@@ -57,7 +60,9 @@ import org.xml.sax.XMLReader;
 import org.xml.sax.helpers.DefaultHandler;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.StreamReadFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.auto.service.AutoService;
 
 /**
@@ -75,7 +80,10 @@ public class DefaultSamplerCreator extends AbstractSamplerCreator {
     private static final int SAMPLER_NAME_NAMING_MODE_SUFFIX = 2; // $NON-NLS-1$
     private static final int SAMPLER_NAME_NAMING_MODE_FORMATTER = 3; // $NON_NLS-1$
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final ObjectMapper OBJECT_MAPPER = JsonMapper.builder()
+            // See https://github.com/FasterXML/jackson-core/issues/991
+            .enable(StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION)
+            .build();
     /**
      *
      */
@@ -168,9 +176,9 @@ public class DefaultSamplerCreator extends AbstractSamplerCreator {
 
         if (params != null) {
             sampler.setProperty(TestElement.GUI_CLASS, GraphQLHTTPSamplerGui.class.getName());
-            sampler.setProperty(GraphQLUrlConfigGui.OPERATION_NAME, params.getOperationName());
-            sampler.setProperty(GraphQLUrlConfigGui.QUERY, params.getQuery());
-            sampler.setProperty(GraphQLUrlConfigGui.VARIABLES, params.getVariables());
+            sampler.setProperty(GraphQLUrlConfigGui.OPERATION_NAME, defaultIfEmpty(params.getOperationName(), null));
+            sampler.setProperty(GraphQLUrlConfigGui.QUERY, defaultIfEmpty(params.getQuery(), null));
+            sampler.setProperty(GraphQLUrlConfigGui.VARIABLES, defaultIfEmpty(params.getVariables(), null));
         }
     }
 
@@ -345,7 +353,7 @@ public class DefaultSamplerCreator extends AbstractSamplerCreator {
      */
     protected static void computeSamplerName(HTTPSamplerBase sampler,
             HttpRequestHdr request) {
-        String prefix = StringUtils.defaultString(request.getPrefix(), "");
+        String prefix = Objects.toString(request.getPrefix(), "");
         int httpSampleNameMode = request.getHttpSampleNameMode();
         String format = getFormat(httpSampleNameMode, request.getHttpSampleNameFormat());
         String url;
